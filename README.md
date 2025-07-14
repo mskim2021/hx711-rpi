@@ -1,2 +1,2 @@
-# hx711
-Raspberry Pi용 HX711 로드셀 Python 모듈
+# hx711_rpi
+Raspberry Pi용 HX711 Python 모듈
