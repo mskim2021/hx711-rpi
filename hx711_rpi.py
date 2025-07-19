@@ -2,6 +2,7 @@ from typing import Literal, Final
 import RPi.GPIO as GPIO
 from time import sleep
 from statistics import median
+from threading import Lock
 
 
 class HX711:
@@ -30,6 +31,7 @@ class HX711:
         self.offset: int = 0
         self.scale: float = 1
         self._power_down: bool = False
+        self._lock = Lock()
 
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.dt, GPIO.IN)
@@ -80,6 +82,7 @@ class HX711:
     def tare(self, samples: int = 10) -> int:
         """로드셀의 자체 오차와 위에 올려진 용기의 무게를 포함해 영점을 설정합니다.
         영점 설정 이후에 단위 보정을 해야 합니다.
+        절전 모드를 자동으로 해제합니다.
 
         Args:
             samples (int, optional): 영점 설정에 사용할 샘플의 갯수. 기본값은 `10`입니다.
@@ -87,13 +90,17 @@ class HX711:
         Returns:
             int: 영점 설정 후 결졍된 오프셋 값.
         """
-        values = [self._read_raw() for _ in range(samples)]
+        if self._power_down:
+            self.power_down = False  # 절전 모드 자동 해제
+        with self._lock:
+            values = [self._read_raw() for _ in range(samples)]
         self.offset = int(median(values))
         return self.offset
 
     def calibrate(self, reference_weight: float, samples: int = 10) -> float:
         """로드셀 위에 올려진 기준 물체의 무게에 따라 계산 단위를 보정합니다.
         영점 설정 이후에 단위 보정을 해야 합니다.
+        절전 모드를 자동으로 해제합니다.
 
         Args:
             reference_weight (float): 기준 물체의 그램(g) 단위 무게.
@@ -102,20 +109,28 @@ class HX711:
         Returns:
             float: 단위 보정 후 결정된 계수 값.
         """
-        values = [self._read_raw() - self.offset for _ in range(samples)]
+        if self._power_down:
+            self.power_down = False  # 절전 모드 자동 해제
+        with self._lock:
+            values = [self._read_raw() - self.offset for _ in range(samples)]
         self.scale = median(values) / reference_weight
         return self.scale
 
     def get_weight(self) -> float:
-        """
+        """절전 모드를 자동으로 해제합니다.
+
         Returns:
             float: 설정된 `offset`(영점 설정 오프셋)과 `scale`(단위 보정 계수)에 따라 변환된 무게.
         """
-        return (self._read_raw() - self.offset) / self.scale
+        if self._power_down:
+            self.power_down = False  # 절전 모드 자동 해제
+        with self._lock:
+            return (self._read_raw() - self.offset) / self.scale
 
     @property
     def gain(self) -> Literal[128, 64, 32]:
         """A 채널은 `128`과 `64`를, B 채널은 `32`를 사용합니다.
+        절전 모드를 자동으로 해제합니다.
 
         Returns:
             Literal[128, 64, 32]: 설정된 게인 값.
@@ -132,11 +147,15 @@ class HX711:
         if value == self._gain:
             return
         self._gain = value
-        self._read_raw()  # 초기 쓰레기값 버리기 & 게인 설정
+        if self._power_down:
+            self.power_down = False  # 절전 모드 자동 해제
+        with self._lock:
+            self._read_raw()  # 초기 쓰레기값 버리기 & 게인 설정
 
     @property
     def power_down(self) -> bool:
         """기본값은 `False`이며, `True`로 설정 시 절전 모드가 켜집니다.
+        절전 모드는 장치를 사용하는 경우 자동으로 해제됩니다.
 
         Returns:
             bool: 설정된 절전 모드의 상태.
@@ -149,12 +168,14 @@ class HX711:
         if value == self._power_down:
             return
         if value:
-            GPIO.output(self.sck, GPIO.LOW)
-            GPIO.output(self.sck, GPIO.HIGH)
-            sleep(0.00006)  # 최소 60 μs 이상 유지
+            with self._lock:
+                GPIO.output(self.sck, GPIO.LOW)
+                GPIO.output(self.sck, GPIO.HIGH)
+                sleep(0.00006)  # 최소 60 μs 이상 유지
         else:
-            GPIO.output(self.sck, GPIO.LOW)
-            self._read_raw()  # 초기 쓰레기값 버리기 & 게인 설정
+            with self._lock:
+                GPIO.output(self.sck, GPIO.LOW)
+                self._read_raw()  # 초기 쓰레기값 버리기 & 게인 설정
         self._power_down = value
 
     def cleanup(self) -> None:
