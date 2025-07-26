@@ -1,10 +1,10 @@
 # Raspberry Pi용 HX711 Python 모듈 (한국어)
-
 이 Python 모듈은 `RPi.GPIO` 라이브러리를 사용하여 Raspberry Pi에서 HX711 로드셀의 무게를 측정합니다.  
 GPIO 핀을 제어하여 HX711에서 데이터를 읽고 로드셀의 무게를 측정할 수 있습니다.  
 Raspberry Pi 4에서 작동 확인했습니다.
 
 ## 주요 메소드
+메소드에 대한 더 자세한 설명은 해당 메소드의 docstring을 참고해주세요.
 
 ### `HX711.__init__(dt_pin: int, sck_pin: int, gain: Literal[128, 64, 32] = 128) -> None`
 - HX711 객체를 생성하고, 데이터 핀, 클럭 핀, 게인을 설정합니다.
@@ -14,7 +14,7 @@ Raspberry Pi 4에서 작동 확인했습니다.
 - 예시:
   ```python
   from hx711-rpi import HX711
-  
+
   hx = HX711(5, 6)
   print(f"데이터 핀: {hx.dt}, 클럭 핀: {hx.sck}, 게인: {hx.gain})
   ```
@@ -26,9 +26,9 @@ Raspberry Pi 4에서 작동 확인했습니다.
     ```python
     current_gain = hx.gain
     print(f"이전 게인: {current_gain}")
-    
+
     hx.gain = 64  # 게인 값 변경
-    print(f"신규 게인: {current_gain}")
+    print(f"신규 게인: {hx.gain}")
     ```
 
 ### `HX711.tare(samples: int = 10) -> int`
@@ -84,7 +84,6 @@ Raspberry Pi 4에서 작동 확인했습니다.
     ```
 
 ## 전체 사용 예시
-
 아래는 `HX711` 객체를 생성하고, 영점 설정, 보정, 무게 측정을 순차적으로 하는 예시 코드입니다.
 ```python
 from hx711-rpi import HX711
